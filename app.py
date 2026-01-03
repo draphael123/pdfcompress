@@ -10,15 +10,15 @@ app = Flask(__name__)
 if os.environ.get('RAILWAY_ENVIRONMENT'):
     # Railway environment
     app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
-    app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024  # 200 MB for Railway
+    app.config['MAX_CONTENT_LENGTH'] = None  # No artificial limit
 elif os.environ.get('VERCEL'):
-    # Vercel environment
+    # Vercel environment - remove our limit, let Vercel handle it
     app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
-    app.config['MAX_CONTENT_LENGTH'] = 4.5 * 1024 * 1024  # 4.5 MB for Vercel free tier
+    app.config['MAX_CONTENT_LENGTH'] = None  # Let Vercel's infrastructure limits apply
 else:
     # Local development
     app.config['UPLOAD_FOLDER'] = 'temp_uploads'
-    app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB for local
+    app.config['MAX_CONTENT_LENGTH'] = None  # No limit locally
 
 # Create upload folder if it doesn't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
