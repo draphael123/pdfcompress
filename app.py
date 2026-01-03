@@ -89,6 +89,77 @@ def index_chunked():
     """Route for chunked upload version (handles large files)"""
     return render_template('index_chunked.html')
 
+@app.route('/merge-page')
+def merge_page():
+    """Route for PDF merge page"""
+    return render_template('merge.html')
+
+@app.route('/merge', methods=['POST'])
+def merge_pdfs():
+    """Merge multiple PDFs into one"""
+    try:
+        files = request.files.getlist('files')
+        
+        if not files or len(files) < 2:
+            return jsonify({'error': 'Please provide at least 2 PDF files'}), 400
+        
+        if len(files) > 20:
+            return jsonify({'error': 'Maximum 20 files allowed'}), 400
+        
+        # Verify all files are PDFs
+        for file in files:
+            if not allowed_file(file.filename):
+                return jsonify({'error': f'File {file.filename} is not a PDF'}), 400
+        
+        # Create PDF merger
+        merger = PyPDF2.PdfMerger()
+        temp_files = []
+        
+        try:
+            # Save and add each PDF to merger
+            for i, file in enumerate(files):
+                filename = secure_filename(file.filename)
+                temp_path = os.path.join(app.config['UPLOAD_FOLDER'], f'temp_merge_{i}_{filename}')
+                file.save(temp_path)
+                temp_files.append(temp_path)
+                
+                # Add PDF to merger
+                merger.append(temp_path)
+            
+            # Create output filename
+            output_filename = f'merged_{len(files)}_pdfs.pdf'
+            output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+            
+            # Write merged PDF
+            merger.write(output_path)
+            merger.close()
+            
+            # Get file size
+            file_size_mb = get_file_size_mb(output_path)
+            
+            # Clean up temp files
+            for temp_file in temp_files:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+            
+            return jsonify({
+                'success': True,
+                'filename': output_filename,
+                'num_files': len(files),
+                'total_size': f'{file_size_mb:.2f} MB'
+            })
+        
+        except Exception as e:
+            # Clean up on error
+            merger.close()
+            for temp_file in temp_files:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+            raise e
+    
+    except Exception as e:
+        return jsonify({'error': f'Merge failed: {str(e)}'}), 500
+
 @app.route('/upload-chunk', methods=['POST'])
 def upload_chunk():
     """Handle chunked file uploads for large PDFs"""
