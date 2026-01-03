@@ -229,6 +229,110 @@
             display: block;
         }
 
+        .preview-container {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .preview-container.show {
+            display: block;
+        }
+
+        .preview-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .preview-frame {
+            width: 100%;
+            height: 400px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .info-title {
+            color: #1976d2;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        .info-list {
+            color: #666;
+            line-height: 1.8;
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .stat-box {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-label {
+            color: #999;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            color: #333;
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+
+        .progress-details {
+            background: #f8f9ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .progress-step {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            color: #666;
+        }
+
+        .progress-step.active {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .progress-step.complete {
+            color: #4caf50;
+        }
+
+        .progress-icon {
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+
         .result-title {
             color: #2e7d32;
             font-weight: 600;
@@ -345,6 +449,17 @@
             </a>
         </div>
 
+        <div class="info-box">
+            <div class="info-title">✨ Features</div>
+            <ul class="info-list">
+                <li>🎯 Target any file size (default: 199MB)</li>
+                <li>🔒 Secure - files auto-delete after download</li>
+                <li>⚡ Fast compression with quality preservation</li>
+                <li>📊 Real-time progress tracking</li>
+                <li>👁️ Preview before and after compression</li>
+            </ul>
+        </div>
+
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">📁</div>
             <div class="upload-text">Click to browse or drag & drop your PDF here</div>
@@ -378,6 +493,33 @@
                 </div>
             </div>
             <div class="progress-text" id="progressText">Compressing your PDF...</div>
+            
+            <div class="progress-details">
+                <div class="progress-step" id="step1">
+                    <span class="progress-icon">⬆️</span>
+                    <span>Uploading file...</span>
+                </div>
+                <div class="progress-step" id="step2">
+                    <span class="progress-icon">🔄</span>
+                    <span>Analyzing PDF structure...</span>
+                </div>
+                <div class="progress-step" id="step3">
+                    <span class="progress-icon">🗜️</span>
+                    <span>Compressing content...</span>
+                </div>
+                <div class="progress-step" id="step4">
+                    <span class="progress-icon">✅</span>
+                    <span>Finalizing compressed file...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="preview-container" id="previewContainer">
+            <div class="preview-title">📄 PDF Preview</div>
+            <iframe id="previewFrame" class="preview-frame"></iframe>
+            <div style="text-align: center; color: #666; font-size: 0.9em;">
+                Preview of your original PDF (first page)
+            </div>
         </div>
 
         <div class="error-message" id="errorMessage"></div>
@@ -469,6 +611,15 @@
             compressBtn.classList.add('show');
             errorMessage.classList.remove('show');
             resultContainer.classList.remove('show');
+            
+            // Show PDF preview
+            showPreview(file);
+        }
+
+        function showPreview(file) {
+            const fileURL = URL.createObjectURL(file);
+            document.getElementById('previewFrame').src = fileURL;
+            document.getElementById('previewContainer').classList.add('show');
         }
 
         function formatFileSize(bytes) {
@@ -490,12 +641,14 @@
             errorMessage.classList.remove('show');
             resultContainer.classList.remove('show');
 
-            // Simulate progress
+            // Progress simulation with steps
             let progress = 0;
+            let currentStep = 1;
             const progressInterval = setInterval(() => {
-                progress += Math.random() * 15;
+                progress += Math.random() * 10;
                 if (progress > 90) progress = 90;
                 updateProgress(progress);
+                updateSteps(progress);
             }, 500);
 
             try {
@@ -506,6 +659,7 @@
 
                 clearInterval(progressInterval);
                 updateProgress(100);
+                updateSteps(100);
 
                 const data = await response.json();
 
@@ -535,6 +689,26 @@
             }
         });
 
+        function updateSteps(progress) {
+            const steps = [
+                { id: 'step1', threshold: 0 },
+                { id: 'step2', threshold: 25 },
+                { id: 'step3', threshold: 50 },
+                { id: 'step4', threshold: 75 }
+            ];
+
+            steps.forEach(step => {
+                const element = document.getElementById(step.id);
+                if (progress >= step.threshold + 25) {
+                    element.className = 'progress-step complete';
+                } else if (progress >= step.threshold) {
+                    element.className = 'progress-step active';
+                } else {
+                    element.className = 'progress-step';
+                }
+            });
+        }
+
         function updateProgress(percent) {
             progressFill.style.width = percent + '%';
             progressPercent.textContent = Math.round(percent) + '%';
@@ -561,8 +735,14 @@
             resultContainer.classList.remove('show');
             errorMessage.classList.remove('show');
             progressContainer.classList.remove('show');
+            previewContainer.classList.remove('show');
             spinner.classList.remove('show');
             updateProgress(0);
+            
+            // Reset steps
+            ['step1', 'step2', 'step3', 'step4'].forEach(id => {
+                document.getElementById(id).className = 'progress-step';
+            });
         });
     </script>
 </body>
