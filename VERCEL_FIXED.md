@@ -210,3 +210,4 @@ Vercel → Load PyPDF2 (pure Python) → Works perfectly ✅
 
 If you still have issues, let me know the specific error message from the Vercel logs.
 
+

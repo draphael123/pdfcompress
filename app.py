@@ -84,6 +84,109 @@ def compress_with_pypdf2(input_path, output_path, compression_ratio):
 def index():
     return render_template('index.html')
 
+@app.route('/chunked')
+def index_chunked():
+    """Route for chunked upload version (handles large files)"""
+    return render_template('index_chunked.html')
+
+@app.route('/upload-chunk', methods=['POST'])
+def upload_chunk():
+    """Handle chunked file uploads for large PDFs"""
+    try:
+        chunk = request.files.get('chunk')
+        chunk_index = int(request.form.get('chunkIndex'))
+        total_chunks = int(request.form.get('totalChunks'))
+        upload_id = request.form.get('uploadId')
+        file_name = request.form.get('fileName')
+        
+        if not all([chunk, upload_id, file_name]):
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        # Create directory for this upload
+        upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], upload_id)
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Save chunk
+        chunk_path = os.path.join(upload_dir, f'chunk_{chunk_index}')
+        chunk.save(chunk_path)
+        
+        # Save metadata
+        metadata_path = os.path.join(upload_dir, 'metadata.txt')
+        with open(metadata_path, 'w') as f:
+            f.write(f'{file_name}\n{total_chunks}\n')
+        
+        return jsonify({
+            'success': True,
+            'chunk_index': chunk_index,
+            'total_chunks': total_chunks
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/compress-chunks', methods=['POST'])
+def compress_chunks():
+    """Reassemble chunks and compress the PDF"""
+    try:
+        data = request.get_json()
+        upload_id = data.get('uploadId')
+        target_size = float(data.get('target_size', 199))
+        
+        if not upload_id:
+            return jsonify({'error': 'Upload ID required'}), 400
+        
+        upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], upload_id)
+        
+        if not os.path.exists(upload_dir):
+            return jsonify({'error': 'Upload not found'}), 404
+        
+        # Read metadata
+        metadata_path = os.path.join(upload_dir, 'metadata.txt')
+        with open(metadata_path, 'r') as f:
+            lines = f.readlines()
+            original_filename = lines[0].strip()
+            total_chunks = int(lines[1].strip())
+        
+        # Reassemble file
+        assembled_path = os.path.join(app.config['UPLOAD_FOLDER'], f'assembled_{upload_id}.pdf')
+        
+        with open(assembled_path, 'wb') as outfile:
+            for i in range(total_chunks):
+                chunk_path = os.path.join(upload_dir, f'chunk_{i}')
+                if not os.path.exists(chunk_path):
+                    return jsonify({'error': f'Missing chunk {i}'}), 500
+                
+                with open(chunk_path, 'rb') as infile:
+                    outfile.write(infile.read())
+        
+        # Get original size
+        original_size = get_file_size_mb(assembled_path)
+        
+        # Compress the assembled PDF
+        output_filename = f"compressed_{original_filename}"
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+        
+        compressed_size = compress_pdf_iterative(assembled_path, output_path, target_size)
+        
+        # Calculate compression percentage
+        compression_percent = ((original_size - compressed_size) / original_size) * 100
+        
+        # Clean up chunks
+        import shutil
+        shutil.rmtree(upload_dir)
+        os.remove(assembled_path)
+        
+        return jsonify({
+            'success': True,
+            'filename': output_filename,
+            'original_size': f"{original_size:.2f}",
+            'compressed_size': f"{compressed_size:.2f}",
+            'compression_percent': f"{compression_percent:.1f}"
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/compress', methods=['POST'])
 def compress_pdf():
     if 'file' not in request.files:
