@@ -4,14 +4,6 @@ from flask import Flask, render_template, request, send_file, jsonify
 from werkzeug.utils import secure_filename
 import PyPDF2
 
-# Try to import pikepdf, but make it optional for Vercel compatibility
-try:
-    import pikepdf
-    PIKEPDF_AVAILABLE = True
-except ImportError:
-    PIKEPDF_AVAILABLE = False
-    print("Warning: pikepdf not available, using PyPDF2 only")
-
 app = Flask(__name__)
 
 # Configure based on environment
@@ -42,7 +34,7 @@ def get_file_size_mb(file_path):
 
 def compress_pdf_iterative(input_path, output_path, target_size_mb=199, max_iterations=10):
     """
-    Compress PDF to target size using iterative approach
+    Compress PDF to target size using PyPDF2
     """
     current_size = get_file_size_mb(input_path)
     
@@ -56,58 +48,8 @@ def compress_pdf_iterative(input_path, output_path, target_size_mb=199, max_iter
     # Calculate compression ratio needed
     compression_ratio = target_size_mb / current_size
     
-    # Try compression with pikepdf first (better quality preservation)
-    if PIKEPDF_AVAILABLE:
-        try:
-            with pikepdf.open(input_path) as pdf:
-            # Remove unnecessary elements
-            for page in pdf.pages:
-                # Compress images on each page
-                for obj_name, obj in list(page.images.items()):
-                    try:
-                        # Get the image
-                        raw_image = obj
-                        
-                        # Determine quality based on compression ratio
-                        if compression_ratio > 0.7:
-                            # Light compression
-                            quality = 85
-                        elif compression_ratio > 0.5:
-                            # Medium compression
-                            quality = 70
-                        elif compression_ratio > 0.3:
-                            # Heavy compression
-                            quality = 50
-                        else:
-                            # Very heavy compression
-                            quality = 35
-                        
-                        # Note: pikepdf doesn't directly support quality settings
-                        # We'll use object stream compression instead
-                        pass
-                    except Exception as e:
-                        print(f"Error processing image {obj_name}: {e}")
-                        continue
-            
-                # Save with compression
-                pdf.save(output_path, 
-                        compress_streams=True,
-                        object_stream_mode=pikepdf.ObjectStreamMode.generate)
-            
-            result_size = get_file_size_mb(output_path)
-            
-            # If still too large, try more aggressive compression with PyPDF2
-            if result_size > target_size_mb:
-                return compress_with_pypdf2(input_path, output_path, compression_ratio)
-            
-            return result_size
-        
-        except Exception as e:
-            print(f"Pikepdf compression failed: {e}, trying PyPDF2")
-            return compress_with_pypdf2(input_path, output_path, compression_ratio)
-    else:
-        # pikepdf not available, use PyPDF2 directly
-        return compress_with_pypdf2(input_path, output_path, compression_ratio)
+    # Use PyPDF2 for compression (Vercel-compatible)
+    return compress_with_pypdf2(input_path, output_path, compression_ratio)
 
 def compress_with_pypdf2(input_path, output_path, compression_ratio):
     """

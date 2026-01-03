@@ -1,14 +1,9 @@
-import os
 import sys
-from pathlib import Path
+import os
 
-# Add parent directory to path
-parent_dir = str(Path(__file__).resolve().parent.parent)
-sys.path.insert(0, parent_dir)
+# Add parent directory to Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Import the Flask app
-from app import app as application
-
-# Export for Vercel
-app = application
+# Import Flask app
+from app import app
 
