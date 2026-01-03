@@ -387,8 +387,8 @@
 </head>
 <body>
     <div class="container">
-        <h1>📑 PDF Merger</h1>
-        <p class="subtitle">Merge up to 20 PDFs into one document</p>
+        <h1>📑 PDF & CSV Merger</h1>
+        <p class="subtitle">Merge up to 20 PDFs and CSV files into one document</p>
 
         <div class="nav-links">
             <a href="/">← Back to Compressor</a>
@@ -397,19 +397,20 @@
         <div class="info-box">
             <div class="info-title">✨ How It Works</div>
             <ul class="info-list">
-                <li>📁 Upload up to 20 PDF files</li>
+                <li>📁 Upload up to 20 PDF or CSV files</li>
+                <li>📊 CSV files are automatically converted to PDF tables</li>
                 <li>🔄 Drag and drop to reorder them</li>
                 <li>🗑️ Remove any file you don't want</li>
-                <li>🔗 Click "Merge PDFs" to combine them</li>
+                <li>🔗 Click "Merge Documents" to combine them</li>
                 <li>⬇️ Download your merged PDF</li>
             </ul>
         </div>
 
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">📁</div>
-            <div class="upload-text">Click to browse or drag & drop PDFs here</div>
-            <div class="upload-hint">You can select multiple files at once (up to 20)</div>
-            <input type="file" id="fileInput" accept=".pdf" multiple>
+            <div class="upload-text">Click to browse or drag & drop PDFs and CSVs here</div>
+            <div class="upload-hint">You can select multiple files at once (up to 20) • Accepts PDF and CSV</div>
+            <input type="file" id="fileInput" accept=".pdf,.csv" multiple>
         </div>
 
         <div class="files-list" id="filesList">
@@ -421,7 +422,7 @@
         </div>
 
         <button class="merge-btn" id="mergeBtn">
-            🔗 Merge PDFs
+            🔗 Merge Documents
         </button>
 
         <div class="progress-container" id="progressContainer">
@@ -430,19 +431,19 @@
                     <span id="progressPercent">0%</span>
                 </div>
             </div>
-            <div class="progress-text" id="progressText">Merging PDFs...</div>
+            <div class="progress-text" id="progressText">Converting CSVs and merging documents...</div>
         </div>
 
         <div class="error-message" id="errorMessage"></div>
 
         <div class="result-container" id="resultContainer">
-            <div class="result-title">✅ PDFs Merged Successfully!</div>
+            <div class="result-title">✅ Documents Merged Successfully!</div>
             <p style="color: #666; margin: 15px 0;" id="mergeInfo">-</p>
             <button class="download-btn" id="downloadBtn">
                 ⬇️ Download Merged PDF
             </button>
             <button class="reset-btn" id="resetBtn">
-                Merge More PDFs
+                Merge More Documents
             </button>
         </div>
     </div>
@@ -488,20 +489,24 @@
         });
 
         function handleFiles(files) {
-            const pdfFiles = Array.from(files).filter(f => f.type === 'application/pdf');
+            const validFiles = Array.from(files).filter(f => 
+                f.type === 'application/pdf' || 
+                f.type === 'text/csv' || 
+                f.name.toLowerCase().endsWith('.csv')
+            );
             
-            if (pdfFiles.length === 0) {
-                showError('Please select PDF files only');
+            if (validFiles.length === 0) {
+                showError('Please select PDF or CSV files only');
                 return;
             }
 
             const remainingSlots = MAX_FILES - selectedFiles.length;
-            if (pdfFiles.length > remainingSlots) {
+            if (validFiles.length > remainingSlots) {
                 showError(`You can only add ${remainingSlots} more file(s). Maximum is ${MAX_FILES} files.`);
-                pdfFiles.splice(remainingSlots);
+                validFiles.splice(remainingSlots);
             }
 
-            selectedFiles = [...selectedFiles, ...pdfFiles];
+            selectedFiles = [...selectedFiles, ...validFiles];
             updateFilesList();
             errorMessage.classList.remove('show');
             resultContainer.classList.remove('show');
@@ -525,11 +530,15 @@
                 fileItem.draggable = true;
                 fileItem.dataset.index = index;
 
+                const fileIcon = file.name.toLowerCase().endsWith('.csv') ? '📊' : '📄';
+                const fileType = file.name.toLowerCase().endsWith('.csv') ? 
+                    '<span style="background: #4caf50; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; margin-left: 8px;">CSV→PDF</span>' : '';
+                
                 fileItem.innerHTML = `
                     <div class="file-info">
                         <div class="file-number">${index + 1}</div>
                         <div class="file-details">
-                            <div class="file-name">📄 ${file.name}</div>
+                            <div class="file-name">${fileIcon} ${file.name} ${fileType}</div>
                             <div class="file-size">${formatFileSize(file.size)}</div>
                         </div>
                     </div>
@@ -606,7 +615,7 @@
 
         mergeBtn.addEventListener('click', async () => {
             if (selectedFiles.length < 2) {
-                showError('Please select at least 2 PDF files to merge');
+                showError('Please select at least 2 files to merge');
                 return;
             }
 
@@ -647,7 +656,13 @@
                 setTimeout(() => {
                     progressContainer.classList.remove('show');
                     resultContainer.classList.add('show');
-                    mergeInfo.textContent = `Merged ${data.num_files} PDFs into one document (${data.total_size})`;
+                    
+                    let infoText = `Merged ${data.num_files} document${data.num_files > 1 ? 's' : ''}`;
+                    if (data.num_csvs > 0) {
+                        infoText += ` (${data.num_pdfs} PDF${data.num_pdfs !== 1 ? 's' : ''} + ${data.num_csvs} CSV${data.num_csvs !== 1 ? 's' : ''})`;
+                    }
+                    infoText += ` into one PDF (${data.total_size})`;
+                    mergeInfo.textContent = infoText;
                 }, 500);
 
             } catch (error) {
