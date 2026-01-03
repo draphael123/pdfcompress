@@ -159,6 +159,164 @@ def merge_page():
     """Route for PDF merge page"""
     return render_template('merge.html')
 
+@app.route('/split-page')
+def split_page():
+    """Route for PDF split page"""
+    return render_template('split.html')
+
+@app.route('/rotate-page')
+def rotate_page():
+    """Route for PDF rotate page"""
+    return render_template('rotate.html')
+
+@app.route('/get-page-count', methods=['POST'])
+def get_page_count():
+    """Get the number of pages in a PDF"""
+    try:
+        file = request.files.get('file')
+        if not file:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        # Save temporarily
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_count.pdf')
+        file.save(temp_path)
+        
+        # Get page count
+        reader = PyPDF2.PdfReader(temp_path)
+        page_count = len(reader.pages)
+        
+        # Clean up
+        os.remove(temp_path)
+        
+        return jsonify({'page_count': page_count})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/split', methods=['POST'])
+def split_pdf():
+    """Split PDF based on page range"""
+    try:
+        file = request.files.get('file')
+        mode = request.form.get('mode', 'all')
+        
+        if not file:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        filename = secure_filename(file.filename)
+        input_path = os.path.join(app.config['UPLOAD_FOLDER'], f'input_{filename}')
+        file.save(input_path)
+        
+        reader = PyPDF2.PdfReader(input_path)
+        total_pages = len(reader.pages)
+        
+        # Determine pages to extract
+        pages_to_extract = []
+        
+        if mode == 'all':
+            pages_to_extract = list(range(total_pages))
+        elif mode == 'first':
+            pages_to_extract = [0]
+        elif mode == 'last':
+            pages_to_extract = [total_pages - 1]
+        elif mode == 'custom':
+            range_str = request.form.get('range', '')
+            pages_to_extract = parse_page_range(range_str, total_pages)
+        
+        if not pages_to_extract:
+            return jsonify({'error': 'No valid pages selected'}), 400
+        
+        # Create output PDF
+        writer = PyPDF2.PdfWriter()
+        for page_num in pages_to_extract:
+            writer.add_page(reader.pages[page_num])
+        
+        output_filename = f'split_{filename}'
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+        
+        with open(output_path, 'wb') as output_file:
+            writer.write(output_file)
+        
+        # Clean up input
+        os.remove(input_path)
+        
+        return jsonify({
+            'success': True,
+            'filename': output_filename,
+            'message': f'Extracted {len(pages_to_extract)} page(s) from {total_pages} total pages'
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'Split failed: {str(e)}'}), 500
+
+@app.route('/rotate', methods=['POST'])
+def rotate_pdf():
+    """Rotate PDF pages"""
+    try:
+        file = request.files.get('file')
+        rotation = int(request.form.get('rotation', 90))
+        pages = request.form.get('pages', 'all')
+        
+        if not file:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        filename = secure_filename(file.filename)
+        input_path = os.path.join(app.config['UPLOAD_FOLDER'], f'input_{filename}')
+        file.save(input_path)
+        
+        reader = PyPDF2.PdfReader(input_path)
+        writer = PyPDF2.PdfWriter()
+        
+        total_pages = len(reader.pages)
+        
+        # Determine which pages to rotate
+        if pages == 'all':
+            pages_to_rotate = list(range(total_pages))
+        else:
+            pages_to_rotate = parse_page_range(pages, total_pages)
+        
+        # Rotate specified pages
+        for i, page in enumerate(reader.pages):
+            if i in pages_to_rotate:
+                page.rotate(rotation)
+            writer.add_page(page)
+        
+        output_filename = f'rotated_{filename}'
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+        
+        with open(output_path, 'wb') as output_file:
+            writer.write(output_file)
+        
+        # Clean up
+        os.remove(input_path)
+        
+        return jsonify({
+            'success': True,
+            'filename': output_filename,
+            'message': f'Rotated {len(pages_to_rotate)} page(s) by {rotation}°'
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'Rotation failed: {str(e)}'}), 500
+
+def parse_page_range(range_str, total_pages):
+    """Parse page range string like '1-5, 10, 15-20' """
+    pages = []
+    parts = range_str.split(',')
+    
+    for part in parts:
+        part = part.strip()
+        if '-' in part:
+            start, end = part.split('-')
+            start = int(start) - 1  # Convert to 0-indexed
+            end = int(end) - 1
+            pages.extend(range(start, end + 1))
+        elif part.isdigit():
+            pages.append(int(part) - 1)  # Convert to 0-indexed
+    
+    # Filter valid pages
+    pages = [p for p in pages if 0 <= p < total_pages]
+    return sorted(set(pages))  # Remove duplicates and sort
+
 @app.route('/merge', methods=['POST'])
 def merge_pdfs():
     """Merge multiple PDFs and CSVs into one PDF"""
