@@ -14,12 +14,17 @@ except ImportError:
 
 app = Flask(__name__)
 
-# Use /tmp for Vercel serverless environment compatibility
-if os.environ.get('VERCEL'):
+# Configure based on environment
+if os.environ.get('RAILWAY_ENVIRONMENT'):
+    # Railway environment
     app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
-    # Vercel has smaller limits
-    app.config['MAX_CONTENT_LENGTH'] = 4.5 * 1024 * 1024  # 4.5 MB for free tier
+    app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024  # 200 MB for Railway
+elif os.environ.get('VERCEL'):
+    # Vercel environment
+    app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
+    app.config['MAX_CONTENT_LENGTH'] = 4.5 * 1024 * 1024  # 4.5 MB for Vercel free tier
 else:
+    # Local development
     app.config['UPLOAD_FOLDER'] = 'temp_uploads'
     app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB for local
 
