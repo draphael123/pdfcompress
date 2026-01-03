@@ -13,13 +13,15 @@ except ImportError:
     print("Warning: pikepdf not available, using PyPDF2 only")
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB max upload
 
 # Use /tmp for Vercel serverless environment compatibility
 if os.environ.get('VERCEL'):
     app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
+    # Vercel has smaller limits
+    app.config['MAX_CONTENT_LENGTH'] = 4.5 * 1024 * 1024  # 4.5 MB for free tier
 else:
     app.config['UPLOAD_FOLDER'] = 'temp_uploads'
+    app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB for local
 
 # Create upload folder if it doesn't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
