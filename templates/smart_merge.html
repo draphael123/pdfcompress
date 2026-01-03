@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Merge - Deduplicate PDF Content</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-gradient-1: #667eea;
+            --bg-gradient-2: #764ba2;
+            --bg-gradient-3: #f093fb;
+            --container-bg: white;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --text-tertiary: #999;
+            --card-bg: #f8f9ff;
+            --border-color: #ddd;
+        }
+
+        body.dark-mode {
+            --bg-gradient-1: #1a1a2e;
+            --bg-gradient-2: #16213e;
+            --bg-gradient-3: #0f3460;
+            --container-bg: #1e1e1e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-tertiary: #808080;
+            --card-bg: #2a2a2a;
+            --border-color: #444;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--bg-gradient-1) 0%, var(--bg-gradient-2) 50%, var(--bg-gradient-3) 100%);
+            animation: gradientShift 15s ease infinite;
+            background-size: 200% 200%;
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.3s ease;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--container-bg);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            transition: background 0.3s ease;
+        }
+
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.85em;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover {
+            background: var(--card-bg);
+            color: #667eea;
+        }
+
+        .dark-mode-toggle {
+            background: var(--card-bg);
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+
+        h1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.3em;
+            font-weight: 800;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .info-box {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            border-left: 4px solid #ff6b6b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(252, 182, 159, 0.3);
+        }
+
+        .info-title {
+            color: #c44569;
+            font-weight: 700;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        .info-list {
+            color: #666;
+            line-height: 1.8;
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .upload-area {
+            border: 3px dashed transparent;
+            background: linear-gradient(var(--container-bg), var(--container-bg)) padding-box,
+                        linear-gradient(135deg, #667eea, #764ba2, #f093fb) border-box;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .dedup-options {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .dedup-options.show {
+            display: block;
+        }
+
+        .option-group {
+            margin: 15px 0;
+        }
+
+        .option-label {
+            display: block;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: var(--container-bg);
+            border-radius: 8px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .checkbox-item:has(input:checked) {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-item label {
+            cursor: pointer;
+            color: var(--text-primary);
+        }
+
+        .similarity-slider {
+            width: 100%;
+            margin: 15px 0;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .slider-container input[type="range"] {
+            flex: 1;
+            height: 6px;
+            border-radius: 5px;
+            background: var(--border-color);
+            outline: none;
+        }
+
+        .slider-value {
+            min-width: 60px;
+            padding: 8px 15px;
+            background: var(--container-bg);
+            border-radius: 8px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: center;
+        }
+
+        .files-list {
+            margin: 20px 0;
+            display: none;
+        }
+
+        .files-list.show {
+            display: block;
+        }
+
+        .file-item {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .merge-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .merge-btn.show {
+            display: block;
+        }
+
+        .progress-container {
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-container.show {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 50%, #43e97b 100%);
+            background-size: 200% 100%;
+            animation: progressGlow 2s ease infinite;
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        @keyframes progressGlow {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .result-container {
+            background: #e8f5e9;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .result-container.show {
+            display: block;
+        }
+
+        .duplicates-found {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .duplicate-item {
+            padding: 10px;
+            background: var(--container-bg);
+            border-radius: 5px;
+            margin: 8px 0;
+            border-left: 3px solid #ff9800;
+        }
+
+        .download-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+            text-align: center;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <div class="nav-menu">
+                <a href="/" class="nav-link">🏠 Compress</a>
+                <a href="/merge-page" class="nav-link">📑 Merge</a>
+                <a href="/smart-merge" class="nav-link">🧠 Smart Merge</a>
+                <a href="/split-page" class="nav-link">✂️ Split</a>
+                <a href="/rotate-page" class="nav-link">🔄 Rotate</a>
+            </div>
+            <button class="dark-mode-toggle" id="darkModeToggle" title="Toggle Dark Mode">🌙</button>
+        </div>
+
+        <h1>🧠 Smart Merge</h1>
+        <p class="subtitle">Merge PDFs while removing duplicate information</p>
+
+        <div class="info-box">
+            <div class="info-title">✨ How It Works</div>
+            <ul class="info-list">
+                <li>🔍 Analyzes text content in all PDFs</li>
+                <li>🎯 Detects duplicate names, emails, phone numbers, etc.</li>
+                <li>🗑️ Removes or redacts duplicates based on your settings</li>
+                <li>📑 Merges clean documents into one PDF</li>
+                <li>📊 Provides detailed report of what was found</li>
+            </ul>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div style="font-size: 3em; margin-bottom: 15px;">📁</div>
+            <div style="font-size: 1.2em; color: var(--text-primary); margin-bottom: 10px;">Upload PDFs to Smart Merge</div>
+            <div style="color: var(--text-tertiary); font-size: 0.9em;">Select multiple files (2-20 PDFs)</div>
+            <input type="file" id="fileInput" accept=".pdf" multiple>
+        </div>
+
+        <div class="dedup-options" id="dedupOptions">
+            <div class="option-label">What to detect as duplicates:</div>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="detectNames" checked>
+                    <label for="detectNames">👤 Names</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="detectEmails" checked>
+                    <label for="detectEmails">📧 Email Addresses</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="detectPhones" checked>
+                    <label for="detectPhones">📱 Phone Numbers</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="detectDates" checked>
+                    <label for="detectDates">📅 Dates</label>
+                </div>
+            </div>
+
+            <div class="option-group">
+                <div class="option-label">Similarity threshold (how similar to consider duplicate):</div>
+                <div class="slider-container">
+                    <input type="range" id="similaritySlider" min="50" max="100" value="85" step="5">
+                    <div class="slider-value"><span id="similarityValue">85</span>%</div>
+                </div>
+                <div style="color: var(--text-tertiary); font-size: 0.85em; margin-top: 8px;">
+                    Lower = more matches, Higher = exact matches only
+                </div>
+            </div>
+
+            <div class="option-group">
+                <div class="option-label">Action on duplicates:</div>
+                <div style="display: flex; gap: 10px;">
+                    <label style="flex: 1; padding: 12px; background: var(--container-bg); border-radius: 8px; border: 2px solid #667eea; cursor: pointer;">
+                        <input type="radio" name="action" value="remove" checked style="margin-right: 8px;">
+                        🗑️ Remove from output
+                    </label>
+                    <label style="flex: 1; padding: 12px; background: var(--container-bg); border-radius: 8px; border: 2px solid transparent; cursor: pointer;">
+                        <input type="radio" name="action" value="redact" style="margin-right: 8px;">
+                        ▓ Redact (black out)
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="files-list" id="filesList">
+            <div style="font-weight: 600; margin-bottom: 10px; color: var(--text-primary);">
+                📄 Selected Files: <span id="fileCount">0</span>
+            </div>
+            <div id="filesContainer"></div>
+        </div>
+
+        <button class="merge-btn" id="mergeBtn">🧠 Analyze & Smart Merge</button>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill">
+                    <span id="progressPercent">0%</span>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 10px; color: var(--text-secondary);" id="progressText">
+                Analyzing documents for duplicates...
+            </div>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="result-container" id="resultContainer">
+            <div style="color: #2e7d32; font-weight: 600; font-size: 1.5em; margin-bottom: 15px; text-align: center;">
+                ✅ Smart Merge Complete!
+            </div>
+            <div class="duplicates-found" id="duplicatesFound"></div>
+            <button class="download-btn" id="downloadBtn">⬇️ Download Deduplicated PDF</button>
+        </div>
+    </div>
+
+    <script>
+        let selectedFiles = [];
+        let mergedFilename = null;
+
+        // Dark mode
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+            darkModeToggle.textContent = '☀️';
+        }
+        darkModeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            darkModeToggle.textContent = isDark ? '☀️' : '🌙';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+
+        // Similarity slider
+        const similaritySlider = document.getElementById('similaritySlider');
+        const similarityValue = document.getElementById('similarityValue');
+        similaritySlider.addEventListener('input', (e) => {
+            similarityValue.textContent = e.target.value;
+        });
+
+        // Upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        uploadArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.transform = 'scale(1.02)';
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.transform = 'scale(1)';
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.transform = 'scale(1)';
+            handleFiles(e.dataTransfer.files);
+        });
+
+        function handleFiles(files) {
+            const pdfFiles = Array.from(files).filter(f => f.type === 'application/pdf');
+            
+            if (pdfFiles.length < 2) {
+                showError('Please select at least 2 PDF files');
+                return;
+            }
+
+            if (pdfFiles.length > 20) {
+                showError('Maximum 20 files allowed');
+                return;
+            }
+
+            selectedFiles = pdfFiles;
+            updateFilesList();
+            document.getElementById('dedupOptions').classList.add('show');
+            document.getElementById('filesList').classList.add('show');
+            document.getElementById('mergeBtn').classList.add('show');
+        }
+
+        function updateFilesList() {
+            const container = document.getElementById('filesContainer');
+            document.getElementById('fileCount').textContent = selectedFiles.length;
+            
+            container.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'file-item';
+                item.innerHTML = `
+                    <div>
+                        <div style="font-weight: 600; color: var(--text-primary);">${index + 1}. ${file.name}</div>
+                        <div style="font-size: 0.85em; color: var(--text-tertiary);">${(file.size / 1024 / 1024).toFixed(2)} MB</div>
+                    </div>
+                    <button onclick="removeFile(${index})" style="background: none; border: none; font-size: 1.3em; cursor: pointer;">🗑️</button>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            if (selectedFiles.length < 2) {
+                document.getElementById('dedupOptions').classList.remove('show');
+                document.getElementById('filesList').classList.remove('show');
+                document.getElementById('mergeBtn').classList.remove('show');
+            } else {
+                updateFilesList();
+            }
+        }
+
+        // Merge button
+        document.getElementById('mergeBtn').addEventListener('click', async () => {
+            if (selectedFiles.length < 2) return;
+
+            const formData = new FormData();
+            selectedFiles.forEach(file => formData.append('files', file));
+            
+            // Add options
+            formData.append('detect_names', document.getElementById('detectNames').checked);
+            formData.append('detect_emails', document.getElementById('detectEmails').checked);
+            formData.append('detect_phones', document.getElementById('detectPhones').checked);
+            formData.append('detect_dates', document.getElementById('detectDates').checked);
+            formData.append('similarity', similaritySlider.value);
+            formData.append('action', document.querySelector('input[name="action"]:checked').value);
+
+            document.getElementById('mergeBtn').disabled = true;
+            document.getElementById('progressContainer').classList.add('show');
+            document.getElementById('errorMessage').classList.remove('show');
+
+            try {
+                const response = await fetch('/smart-merge', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                document.getElementById('progressFill').style.width = '100%';
+                document.getElementById('progressPercent').textContent = '100%';
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                mergedFilename = data.filename;
+                
+                // Show results
+                const duplicatesDiv = document.getElementById('duplicatesFound');
+                let html = `
+                    <div style="color: var(--text-primary); font-weight: 600; margin-bottom: 10px;">
+                        📊 Duplicate Analysis Report
+                    </div>
+                    <div style="color: var(--text-secondary); margin-bottom: 15px;">
+                        Found <strong>${data.total_duplicates}</strong> duplicate entries across documents
+                    </div>
+                `;
+
+                if (data.duplicates.names && data.duplicates.names.length > 0) {
+                    html += `<div class="duplicate-item">👤 <strong>Names:</strong> ${data.duplicates.names.join(', ')}</div>`;
+                }
+                if (data.duplicates.emails && data.duplicates.emails.length > 0) {
+                    html += `<div class="duplicate-item">📧 <strong>Emails:</strong> ${data.duplicates.emails.join(', ')}</div>`;
+                }
+                if (data.duplicates.phones && data.duplicates.phones.length > 0) {
+                    html += `<div class="duplicate-item">📱 <strong>Phones:</strong> ${data.duplicates.phones.join(', ')}</div>`;
+                }
+                if (data.duplicates.dates && data.duplicates.dates.length > 0) {
+                    html += `<div class="duplicate-item">📅 <strong>Dates:</strong> ${data.duplicates.dates.join(', ')}</div>`;
+                }
+
+                html += `
+                    <div style="color: var(--text-secondary); margin-top: 15px; font-size: 0.9em;">
+                        ${data.message}
+                    </div>
+                `;
+
+                duplicatesDiv.innerHTML = html;
+
+                document.getElementById('progressContainer').classList.remove('show');
+                document.getElementById('resultContainer').classList.add('show');
+
+            } catch (error) {
+                document.getElementById('progressContainer').classList.remove('show');
+                showError(error.message);
+                document.getElementById('mergeBtn').disabled = false;
+            }
+        });
+
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            if (mergedFilename) {
+                window.location.href = `/download/${mergedFilename}`;
+            }
+        });
+
+        function showError(message) {
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = '❌ ' + message;
+            errorMessage.classList.add('show');
+        }
+    </script>
+</body>
+</html>
+
