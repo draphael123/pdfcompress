@@ -5,6 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Compressor - Compress PDFs to 199MB</title>
     <style>
+        :root {
+            --bg-gradient-1: #667eea;
+            --bg-gradient-2: #764ba2;
+            --bg-gradient-3: #f093fb;
+            --container-bg: white;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --text-tertiary: #999;
+            --card-bg: #f8f9ff;
+            --card-bg-hover: #f0f2ff;
+            --border-color: #ddd;
+        }
+
+        body.dark-mode {
+            --bg-gradient-1: #1a1a2e;
+            --bg-gradient-2: #16213e;
+            --bg-gradient-3: #0f3460;
+            --container-bg: #1e1e1e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-tertiary: #808080;
+            --card-bg: #2a2a2a;
+            --card-bg-hover: #333333;
+            --border-color: #444;
+        }
         * {
             margin: 0;
             padding: 0;
@@ -30,12 +55,58 @@
         }
 
         .container {
-            background: white;
+            background: var(--container-bg);
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 40px;
-            max-width: 600px;
+            max-width: 700px;
             width: 100%;
+            position: relative;
+            transition: background 0.3s ease;
+        }
+
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9em;
+            padding: 8px 15px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover {
+            background: var(--card-bg);
+            color: #667eea;
+        }
+
+        .dark-mode-toggle {
+            background: var(--card-bg);
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: all 0.3s;
+        }
+
+        .dark-mode-toggle:hover {
+            transform: scale(1.1);
         }
 
         h1 {
@@ -111,12 +182,12 @@
 
         .upload-text {
             font-size: 1.2em;
-            color: #333;
+            color: var(--text-primary);
             margin-bottom: 10px;
         }
 
         .upload-hint {
-            color: #999;
+            color: var(--text-tertiary);
             font-size: 0.9em;
         }
 
@@ -517,14 +588,18 @@
 </head>
 <body>
     <div class="container">
+        <div class="header-bar">
+            <div class="nav-menu">
+                <a href="/" class="nav-link">🏠 Compress</a>
+                <a href="/merge-page" class="nav-link">📑 Merge</a>
+                <a href="/split-page" class="nav-link">✂️ Split</a>
+                <a href="/rotate-page" class="nav-link">🔄 Rotate</a>
+            </div>
+            <button class="dark-mode-toggle" id="darkModeToggle" title="Toggle Dark Mode">🌙</button>
+        </div>
+
         <h1>📄 PDF Compressor</h1>
         <p class="subtitle">Compress your PDFs without losing quality</p>
-        
-        <div style="text-align: center; margin: 15px 0;">
-            <a href="/merge-page" style="color: #667eea; text-decoration: none; font-weight: 600; font-size: 0.95em;">
-                📑 Merge PDFs →
-            </a>
-        </div>
 
         <div class="info-box">
             <div class="info-title">✨ Features</div>
@@ -544,11 +619,37 @@
             <input type="file" id="fileInput" accept=".pdf">
         </div>
 
-        <div class="target-size-container">
-            <label for="targetSize">Target Size (MB):</label>
-            <div class="target-size-input">
-                <input type="number" id="targetSize" value="199" min="1" max="500" step="1">
-                <span>MB</span>
+        <div class="quality-presets">
+            <div class="quality-presets-title">
+                Choose Compression Quality
+                <span class="tooltip">ℹ️
+                    <span class="tooltiptext">Select how much to compress your PDF. Higher compression = smaller file but may reduce quality.</span>
+                </span>
+            </div>
+            <div class="preset-buttons">
+                <button class="preset-btn preset-maximum" data-preset="maximum">
+                    <div>🔴 Maximum</div>
+                    <div style="font-size: 0.8em; color: var(--text-tertiary); margin-top: 5px;">Smallest size</div>
+                </button>
+                <button class="preset-btn preset-balanced active" data-preset="balanced">
+                    <div>🟡 Balanced</div>
+                    <div style="font-size: 0.8em; color: var(--text-tertiary); margin-top: 5px;">Recommended</div>
+                </button>
+                <button class="preset-btn preset-minimum" data-preset="minimum">
+                    <div>🟢 Minimum</div>
+                    <div style="font-size: 0.8em; color: var(--text-tertiary); margin-top: 5px;">Best quality</div>
+                </button>
+                <button class="preset-btn preset-custom" data-preset="custom">
+                    <div>⚙️ Custom</div>
+                    <div style="font-size: 0.8em; color: var(--text-tertiary); margin-top: 5px;">Set target size</div>
+                </button>
+            </div>
+            <div class="custom-size-input" id="customSizeInput">
+                <label for="targetSize" style="color: var(--text-secondary); display: block; margin-bottom: 8px;">Target Size (MB):</label>
+                <div class="target-size-input">
+                    <input type="number" id="targetSize" value="199" min="1" max="500" step="1" style="background: var(--container-bg); color: var(--text-primary); border: 2px solid var(--border-color);">
+                    <span style="color: var(--text-secondary);">MB</span>
+                </div>
             </div>
         </div>
 
@@ -629,6 +730,54 @@
     <script>
         let selectedFile = null;
         let compressedFilename = null;
+        let currentPreset = 'balanced';
+        
+        // Dark mode functionality
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const savedTheme = localStorage.getItem('theme');
+        
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+            darkModeToggle.textContent = '☀️';
+        }
+        
+        darkModeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            darkModeToggle.textContent = isDark ? '☀️' : '🌙';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+        
+        // Quality preset functionality
+        const presetButtons = document.querySelectorAll('.preset-btn');
+        const customSizeInput = document.getElementById('customSizeInput');
+        const targetSizeInput = document.getElementById('targetSize');
+        
+        const presetValues = {
+            maximum: 50,   // Aggressive compression
+            balanced: 199,  // Default balanced
+            minimum: 300,   // Light compression
+            custom: 199     // User defined
+        };
+        
+        presetButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Update active state
+                presetButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                // Get preset type
+                currentPreset = btn.dataset.preset;
+                
+                // Show/hide custom input
+                if (currentPreset === 'custom') {
+                    customSizeInput.classList.add('show');
+                } else {
+                    customSizeInput.classList.remove('show');
+                    targetSizeInput.value = presetValues[currentPreset];
+                }
+            });
+        });
 
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
